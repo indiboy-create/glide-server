@@ -1,0 +1,29 @@
+{
+    "name": "youvision/glide-server",
+    "description": "基于 league/glide 的缩略图自动生成系统（composer create-project 安装，上传网站根目录 + nginx 即可使用）",
+    "type": "project",
+    "license": "MIT",
+    "keywords": ["glide", "thumbnail", "image", "resize", "nginx"],
+    "require": {
+        "php": "^8.3",
+        "league/glide": "^4.2",
+        "ext-fileinfo": "*"
+    },
+    "suggest": {
+        "ext-gd": "使用 GD 驱动时需要（默认驱动）",
+        "ext-imagick": "使用 Imagick 驱动时需要"
+    },
+    "autoload": {
+        "psr-4": {
+            "Youvision\\GlideServer\\": "src/"
+        }
+    },
+    "scripts": {
+        "post-create-project-cmd": [
+            "@php -r \"echo PHP_EOL . '安装完成！接下来：' . PHP_EOL . ' 1. 编辑 config/config.php（按需调整预设尺寸等）' . PHP_EOL . ' 2. 按 nginx.example.conf 配置站点' . PHP_EOL . ' 3. 确保 cache/ 目录可写' . PHP_EOL . ' 4. 访问 /uploads/xxx.jpg?w=300&h=400&fit=cover 测试' . PHP_EOL . PHP_EOL;\""
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

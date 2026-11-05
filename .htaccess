@@ -1,0 +1,19 @@
+# Apache 配置示例
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # /uploads/ 下的图片请求交给 thumb.php
+    RewriteRule ^uploads/.+\.(jpg|jpeg|png|gif|webp)$ thumb.php [QSA,L]
+
+    # 禁止访问系统内部目录
+    RewriteRule ^(vendor|src|config|bin)/ - [F,L]
+</IfModule>
+
+# 禁止外部直接访问缩略图缓存目录
+RedirectMatch 403 ^/cache/
+
+# 禁止访问隐藏文件
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
