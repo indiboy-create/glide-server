@@ -40,6 +40,12 @@ class ThumbServer
         'max_image_size' => null,
         // Glide 默认变换参数（URL 参数优先级更高）
         'defaults' => ['q' => 85],
+        // 水印开关：开启后 mark 参数生效
+        'watermarks_enabled' => false,
+        // 水印文件目录（相对 web_root），URL 通过 mark=文件名 指定水印
+        'watermarks' => 'watermarks',
+        // 默认水印参数（URL 参数优先级更高），如 ['mark' => 'logo.png', 'markw' => 200]
+        'watermark_defaults' => [],
         // 仅允许生成预设尺寸：开启后 URL 只能通过 p=预设名 指定尺寸，
         // w/h/fit 等其他参数将被忽略（fm 输出格式仍允许覆盖）
         'preset_sizes_only' => false,
@@ -342,6 +348,12 @@ class ThumbServer
                 'defaults' => (array) $this->config['defaults'],
                 'group_cache_in_folders' => (bool) $this->config['group_cache_in_folders'],
             ];
+
+            if (!empty($this->config['watermarks_enabled'])) {
+                $settings['watermarks'] = $this->config['web_root'] . '/' . trim((string) $this->config['watermarks'], '/');
+                // 水印默认参数合并进 defaults，URL 参数仍优先
+                $settings['defaults'] = array_merge((array) $this->config['watermark_defaults'], $settings['defaults']);
+            }
 
             if ((array) $this->config['preset_sizes'] !== []) {
                 $settings['presets'] = (array) $this->config['preset_sizes'];

@@ -105,6 +105,9 @@ nginx 将 `/uploads/` 下所有图片请求交给 `thumb.php`：
 | `max_width` / `max_height` | 4000 | 缩放尺寸上限，超限自动截断 |
 | `max_image_size` | null | 源图像素总量上限（宽×高），原图超大建议设置 |
 | `defaults` | `['q' => 85]` | 默认变换参数，URL 参数优先 |
+| `watermarks_enabled` | `false` | 水印功能开关：开启后 `mark` 参数生效 |
+| `watermarks` | `watermarks` | 水印文件目录（相对网站根目录），`mark=文件名` 相对该目录 |
+| `watermark_defaults` | `[]` | 默认水印参数（如 `['mark' => 'logo.png', 'markw' => 200]`），URL 参数优先 |
 | `preset_sizes_only` | `false` | 固定尺寸模式开关：开启后仅允许 `p=预设名` 生成预设尺寸 |
 | `preset_sizes` | small/medium/large | 固定预设尺寸（键 = 预设名，值 = Glide 参数） |
 | `group_cache_in_folders` | `true` | 缓存按源图分目录存放，URL 缓存清除依赖此项 |
@@ -221,7 +224,7 @@ curl "https://example.com/uploads/news/111.jpg?del=12345678"
 
 **更换原图后不生效？** 清除 `cache/glide/` 下对应缓存文件（URL 加 `del` 参数，或编程式 `deleteCache()`）。
 
-**想加水印？** 在 config 中配置 `watermarks` 目录后使用 `mark` 参数，详见 Glide 官方文档。
+**想加水印？** 将 `watermarks_enabled` 设为 `true`，把水印图片放入 `watermarks` 目录（目录名可在 `watermarks` 配置中调整），然后用 `mark` 参数指定水印，如 `?mark=logo.png&markw=200&markpos=bottom-right`；若需全站默认水印，在 `watermark_defaults` 中设置 `mark` 即可。水印参数详见 Glide 官方文档。
 
 ## License
 

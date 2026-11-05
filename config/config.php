@@ -35,6 +35,18 @@ return [
         'q' => 85, // 默认输出质量
     ],
 
+    // ===== 水印 =====
+    // 开关：是否启用水印功能；开启后 mark 参数生效，watermarks 目录才会传给 Glide
+    'watermarks_enabled' => false,
+
+    // 水印文件目录（相对网站根目录），目录下存放可作为水印使用的图片
+    // 启用后 URL 通过 mark=文件名（相对该目录）指定水印，如 ?mark=logo.png&markw=200
+    'watermarks' => 'watermarks',
+
+    // 默认水印参数（URL 参数优先级更高）；设置 mark 即为全站默认水印
+    // 常用：mark=logo.png、markw=200、markalpha=80、markpos=bottom-right
+    'watermark_defaults' => [],
+
     // ===== 固定尺寸模式 =====
     // 开关：true = 仅允许生成下方 preset_sizes 中定义的固定尺寸
     // 开启后 URL 只能通过 p=预设名 指定尺寸（如 ?p=small），
