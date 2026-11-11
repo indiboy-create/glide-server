@@ -1,5 +1,15 @@
 {
     "name": "youvision/glide-server",
+    "authors": [
+        {
+            "name": "indiboy-create",
+            "homepage": "https://github.com/indiboy-create"
+        },
+        {
+            "name": "AI",
+            "role": "Developer"
+        }
+    ],
     "description": "基于 league/glide 的缩略图自动生成系统（composer create-project 安装，上传网站根目录 + nginx 即可使用）",
     "type": "project",
     "license": "MIT",
