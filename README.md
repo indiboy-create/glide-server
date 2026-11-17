@@ -104,6 +104,7 @@ nginx 将 `/uploads/` 下所有图片请求交给 `thumb.php`：
 | `allowed_extensions` | jpg/jpeg/png/gif/webp | 源图扩展名白名单 |
 | `max_width` / `max_height` | 4000 | 缩放尺寸上限，超限自动截断 |
 | `max_image_size` | null | 源图像素总量上限（宽×高），原图超大建议设置 |
+| `max_dpr` | 3 | 倍屏上限：`dpr` 会放大输出尺寸，超限自动截断；0 表示不限制 |
 | `defaults` | `['q' => 85]` | 默认变换参数，URL 参数优先 |
 | `watermarks_enabled` | `false` | 水印功能开关：开启后 `mark` 参数生效 |
 | `watermarks` | `watermarks` | 水印文件目录（相对网站根目录），`mark=文件名` 相对该目录 |
@@ -132,6 +133,8 @@ nginx 将 `/uploads/` 下所有图片请求交给 `thumb.php`：
 
 完整参数列表：https://glide.thephpleague.com/
 
+仅 Glide 支持的变换参数参与缓存键，其他未知参数（如任意 `del` 值）会被忽略，避免被利用生成大量缓存文件。`w`/`h` 必须是正整数且不超过配置上限，`dpr` 受 `max_dpr` 限制。
+
 常用组合：
 
 ```
@@ -143,7 +146,7 @@ WebP 输出               /uploads/a.jpg?w=300&fm=webp
 
 ### 固定尺寸模式（preset_sizes_only）
 
-在 `config/config.php` 中将 `'preset_sizes_only' => true` 开启后，系统只允许生成 `preset_sizes` 中定义的固定尺寸，任意 `w`/`h`/`fit` 参数将被拒绝（400），可有效防止恶意参数刷缓存：
+在 `config/config.php` 中将 `'preset_sizes_only' => true` 开启后，系统只允许生成 `preset_sizes` 中定义的固定尺寸；缺少 `p` 参数或 `p` 不在预设列表中会返回 400，其他尺寸参数（`w`/`h`/`fit` 等）会被忽略，可有效防止恶意参数刷缓存：
 
 ```php
 'preset_sizes_only' => true,
@@ -167,7 +170,8 @@ WebP 输出               /uploads/a.jpg?w=300&fm=webp
 
 - **扩展名白名单** — 只处理白名单内的图片类型，勿放开到非图片类型
 - **目录穿越防护** — `realpath` 校验，拦截 `../` 之类路径
-- **尺寸上限** — `max_width` / `max_height` 强制截断，`max_image_size` 限制源图像素总量，防止 `w=99999` 之类的恶意参数
+- **尺寸上限** — `max_width` / `max_height` 强制截断，`max_dpr` 限制倍屏放大，`max_image_size` 限制源图像素总量，防止 `w=99999&dpr=99` 之类的恶意参数
+- **参数白名单** — 仅 Glide 支持的变换参数参与缓存键，未知参数（包括错误的 `del` 口令）被忽略，防止缓存文件膨胀
 - **固定尺寸模式** — `preset_sizes_only` 开启后仅允许预设尺寸，杜绝任意参数
 - **目录隔离** — nginx / Apache 示例已禁止外部访问 `cache/`、`vendor/`、`src/`、`config/`、隐藏文件
 

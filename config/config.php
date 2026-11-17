@@ -30,6 +30,10 @@ return [
     // 源图像素总量上限（宽×高），null 表示不限制；原图超大时建议设置，如 30000000
     'max_image_size' => null,
 
+    // dpr 上限：dpr 会放大实际输出尺寸（w=300&dpr=3 输出 900px），必须单独限制
+    // 防止通过超大 dpr 绕过 max_width/max_height 耗尽内存；0 表示不限制
+    'max_dpr' => 3,
+
     // 默认参数（URL 参数优先级更高）
     'defaults' => [
         'q' => 85, // 默认输出质量

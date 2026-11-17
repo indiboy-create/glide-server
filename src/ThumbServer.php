@@ -20,6 +20,13 @@ use League\Glide\ServerFactory;
  */
 class ThumbServer
 {
+    /** Glide 4.x 支持的 URL 变换参数；未知参数一律忽略，避免被用作缓存键膨胀 */
+    protected const ALLOWED_PARAMS = [
+        'w', 'h', 'fit', 'dpr', 'crop', 'q', 'fm', 'bg', 'border',
+        'bri', 'con', 'filt', 'flip', 'gam', 'or', 'pixel', 'sharp', 'blur', 'p',
+        'mark', 'markw', 'markh', 'markx', 'marky', 'markpad', 'markfit', 'markpos', 'markalpha',
+    ];
+
     protected const DEFAULT_CONFIG = [
         // 网站根目录；留空则使用 getcwd()
         'web_root' => '',
@@ -38,6 +45,8 @@ class ThumbServer
         'max_height' => 4000,
         // 源图像素总量上限（宽×高），null 表示不限制
         'max_image_size' => null,
+        // dpr 上限（w/h 上限会被 dpr 放大，必须单独限制）；0 或负数表示不限制
+        'max_dpr' => 3,
         // Glide 默认变换参数（URL 参数优先级更高）
         'defaults' => ['q' => 85],
         // 水印开关：开启后 mark 参数生效
@@ -78,6 +87,13 @@ class ThumbServer
     public function __construct(array $config = [])
     {
         $this->config = array_merge(self::DEFAULT_CONFIG, $config);
+
+        // 关联型配置支持局部覆盖：只设置 q 时不会丢掉其余默认参数
+        foreach (['defaults', 'fit_aliases', 'watermark_defaults'] as $key) {
+            if (isset($config[$key]) && is_array($config[$key])) {
+                $this->config[$key] = array_merge(self::DEFAULT_CONFIG[$key], $config[$key]);
+            }
+        }
 
         if ($this->config['web_root'] === '' || $this->config['web_root'] === null) {
             $this->config['web_root'] = getcwd();
@@ -125,10 +141,18 @@ class ThumbServer
             $purgeValue = (string) $this->config['cache_purge_value'];
             if (
                 $purgeParam !== ''
+                && $purgeValue !== ''
                 && isset($rawQuery[$purgeParam])
-                && (string) $rawQuery[$purgeParam] === $purgeValue
+                && is_string($rawQuery[$purgeParam])
+                && hash_equals($purgeValue, $rawQuery[$purgeParam])
             ) {
                 $this->purgeCache($relative);
+            }
+
+            // 清除参数（包括口令错误的情况）不能进入 Glide 变换参数，
+            // 否则每个不同的 del 值都会生成一份新缓存文件
+            if ($purgeParam !== '') {
+                unset($rawQuery[$purgeParam]);
             }
 
             $params = $this->sanitizeParams($rawQuery);
@@ -147,7 +171,8 @@ class ThumbServer
         } catch (\League\Flysystem\UnableToReadFile $e) {
             $this->emitError(404, 'Image Not Found');
         } catch (\InvalidArgumentException $e) {
-            $this->emitError(400, 'Invalid image parameters: ' . $e->getMessage());
+            error_log('[glide-thumbnail] invalid params: ' . $e->getMessage());
+            $this->emitError(400, 'Invalid image parameters');
         } catch (\Throwable $e) {
             error_log('[glide-thumbnail] ' . $e->getMessage());
             $this->emitError(500, 'Image processing failed');
@@ -185,17 +210,29 @@ class ThumbServer
             throw new RequestException(404, 'Image Not Found');
         }
 
-        $query = $_GET;
+        // 传入自定义 URI 时从该 URI 解析查询串；入口脚本调用时沿用 $_GET
+        $query = [];
+        if ($uri === null) {
+            $query = $_GET;
+        } else {
+            $queryString = parse_url($uri, PHP_URL_QUERY);
+            if (is_string($queryString)) {
+                parse_str($queryString, $query);
+            }
+        }
 
         return [$relative, $query, $_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? ''];
     }
 
     /**
-     * 参数清洗：预设尺寸校验、映射 fit 别名、强制尺寸上限。
+     * 参数清洗：参数白名单、预设尺寸校验、fit 别名、尺寸与 dpr 上限。
      * 返回空数组表示无变换参数（即直接返回原图）。
      */
     protected function sanitizeParams(array $query): array
     {
+        // 未知参数不得参与缓存键，否则任意查询串都能生成一个新的缓存文件
+        $query = array_intersect_key($query, array_flip(self::ALLOWED_PARAMS));
+
         $presets = (array) $this->config['preset_sizes'];
 
         // 开启预设开关：仅允许 p=预设名，忽略其他尺寸参数
@@ -222,9 +259,22 @@ class ThumbServer
         }
 
         foreach (['w' => 'max_width', 'h' => 'max_height'] as $key => $limit) {
-            if (isset($query[$key]) && (int) $query[$key] > (int) $this->config[$limit]) {
-                $query[$key] = (int) $this->config[$limit];
+            if (!array_key_exists($key, $query)) {
+                continue;
             }
+            if (!is_numeric($query[$key]) || (int) $query[$key] < 1) {
+                throw new RequestException(400, 'Invalid ' . $key . ' parameter');
+            }
+            $query[$key] = min((int) $query[$key], (int) $this->config[$limit]);
+        }
+
+        if (array_key_exists('dpr', $query)) {
+            if (!is_numeric($query['dpr']) || (float) $query['dpr'] <= 0) {
+                throw new RequestException(400, 'Invalid dpr parameter');
+            }
+            $maxDpr = (int) $this->config['max_dpr'];
+            // dpr 会放大实际输出尺寸，必须与 w/h 一样限制，防止内存耗尽
+            $query['dpr'] = $maxDpr > 0 ? min((float) $query['dpr'], (float) $maxDpr) : (float) $query['dpr'];
         }
 
         return $query;
@@ -265,6 +315,7 @@ class ThumbServer
         header('Cache-Control: public, max-age=' . $ttl);
         header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
         header('X-Glide-Cache: ' . ($hitCache ? 'HIT' : 'MISS'));
+        header('X-Content-Type-Options: nosniff');
 
         // 协商缓存：未变更时返回 304
         if ($ifModifiedSince !== '' && strtotime($ifModifiedSince) === $mtime) {
@@ -288,6 +339,7 @@ class ThumbServer
         http_response_code($code);
         header('Content-Type: text/plain; charset=utf-8');
         header('Cache-Control: no-store');
+        header('X-Content-Type-Options: nosniff');
         exit($message);
     }
 

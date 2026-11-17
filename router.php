@@ -13,8 +13,9 @@ if (preg_match('#^/uploads/.+\.(jpg|jpeg|png|gif|webp)$#i', $uri)) {
     return true;
 }
 
-// 其他真实存在的静态文件直接返回
-if ($uri !== '/' && is_file(__DIR__ . $uri)) {
+// 其他真实存在的静态文件直接返回（realpath 校验，拒绝 ../ 穿越）
+$file = $uri !== '/' ? realpath(__DIR__ . $uri) : false;
+if ($file !== false && str_starts_with($file, __DIR__ . DIRECTORY_SEPARATOR) && is_file($file)) {
     return false;
 }
 
